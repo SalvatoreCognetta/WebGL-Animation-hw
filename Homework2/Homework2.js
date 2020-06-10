@@ -6,21 +6,23 @@ var program;
 
 var projectionMatrix;
 var modelViewMatrix;
+var modelViewMatrixTree;
 
 var instanceMatrix;
 
 var modelViewMatrixLoc;
+var modelViewMatrixTreeLoc;
 
 var vertices = [
 
-	vec4(-0.5, -0.5, 0.5, 1.0),
-	vec4(-0.5, 0.5, 0.5, 1.0),
-	vec4(0.5, 0.5, 0.5, 1.0),
-	vec4(0.5, -0.5, 0.5, 1.0),
-	vec4(-0.5, -0.5, -0.5, 1.0),
-	vec4(-0.5, 0.5, -0.5, 1.0),
-	vec4(0.5, 0.5, -0.5, 1.0),
-	vec4(0.5, -0.5, -0.5, 1.0)
+	vec4(-0.5, -0.5, 0.5, 1.0),			//0
+	vec4(-0.5, 0.5, 0.5, 1.0),			//1
+	vec4(0.5, 0.5, 0.5, 1.0),			//2
+	vec4(0.5, -0.5, 0.5, 1.0),			//3
+	vec4(-0.5, -0.5, -0.5, 1.0),		//4
+	vec4(-0.5, 0.5, -0.5, 1.0),			//5
+	vec4(0.5, 0.5, -0.5, 1.0),			//6
+	vec4(0.5, -0.5, -0.5, 1.0)			//7
 ];
 
 //Bear
@@ -63,14 +65,25 @@ var theta = [90, 0, 90, 0, 90, 0, 90, 0, 90, 0, 180, 0, 90];
 
 
 //Tree
-var branchId = 0;
+var trunkId = 0;
+var branch1Id = 1;
+var branch2Id = 2;
+var leaf1Id = 3;
+var leaf2Id = 4;
+var leaf3Id = 5;
+var leaf4Id = 6;
 
-var branchHeight = 5.0;
-var branchWidth = 2.0;
+var trunkHeight = 13.0;
+var trunkWidth = 2.0;
+var branchHeight = 4.0;
+var branchWidth = 1.0;
+var leafHeight = 1.0;
+var leafWidth = 1.0;
 
-var numNodesTree = 1;
+var numNodesTree = 7;
 
-var thetaTree = [0];
+var thetaTree = [0, -60, 60, -40, 40, -40, 40];
+
 
 //Vertices
 var numVertices = 24;
@@ -78,8 +91,11 @@ var numVertices = 24;
 var stack = [];
 
 var figure = [];
+var figureTree = [];
 
 for (var i = 0; i < numNodes; i++) figure[i] = createNode(null, null, null, null);
+
+for (var i = 0; i < numNodesTree; i++) figureTree[i] = createNode(null, null, null, null);
 
 var vBuffer;
 var modelViewLoc;
@@ -166,7 +182,7 @@ function initNodes(Id) {
 
 		case tailId:
 
-			m = translate(0.0, 0.1*tailHeight, 0.0);
+			m = translate(0.0, 0.1 * tailHeight, 0.0);
 			m = mult(m, rotate(theta[tailId], vec3(1, 0, 0)));
 			figure[tailId] = createNode(m, tail, null, null);
 			break;
@@ -206,8 +222,6 @@ function initNodes(Id) {
 function traverse(Id) {
 
 	if (Id == null) return;
-	// console.log(Id);
-	// console.log(Id + ": " + figure[Id].transform);
 	stack.push(modelViewMatrix);
 	modelViewMatrix = mult(modelViewMatrix, figure[Id].transform);
 	figure[Id].render();
@@ -304,6 +318,97 @@ function tail() {
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
 }
 
+//Tree
+function initNodesTree(Id) {
+
+	var m = mat4();
+
+	switch (Id) {
+
+		case trunkId:
+
+			m = translate(6.0, -5.0, 0.0);
+			m = mult(m, rotate(thetaTree[trunkId], vec3(1, 0, 0)));
+			figureTree[trunkId] = createNode(m, trunk, null, branch1Id);
+			break;
+
+		case branch1Id:
+
+			m = translate(0.0, 0.8 * trunkHeight, 0.0);
+			m = mult(m, rotate(thetaTree[branch1Id], vec3(0, 0, 1)));
+			figureTree[branch1Id] = createNode(m, branch, branch2Id, leaf1Id);
+			break;
+
+
+		case branch2Id:
+
+			m = translate(0.0, 0.7 * trunkHeight, 0.0);
+			m = mult(m, rotate(thetaTree[branch2Id], vec3(0, 0, 1)));
+			figureTree[branch2Id] = createNode(m, branch, null, leaf3Id);
+			break;
+
+		case leaf1Id:
+
+			m = translate(-(0.3 * branchWidth), 0.5 * branchHeight, 0.0);
+			m = mult(m, rotate(thetaTree[leaf1Id], vec3(0, 0, 1)));
+			figureTree[leaf1Id] = createNode(m, leaf, leaf2Id, null);
+			break;
+
+		case leaf2Id:
+
+			m = translate(0.3 * branchWidth, 0.5 * branchHeight, 0.0);
+			m = mult(m, rotate(thetaTree[leaf2Id], vec3(0, 0, 1)));
+			figureTree[leaf2Id] = createNode(m, leaf, null, null);
+			break;
+
+		case leaf3Id:
+
+			m = translate(-0.3 * branchWidth, 0.6 * branchHeight, 0.0);
+			m = mult(m, rotate(thetaTree[leaf3Id], vec3(0, 0, 1)));
+			figureTree[leaf3Id] = createNode(m, leaf, leaf4Id, null);
+			break;
+
+		case leaf4Id:
+
+			m = translate(0.3 * branchWidth, 0.5 * branchHeight, 0.0);
+			m = mult(m, rotate(thetaTree[leaf4Id], vec3(0, 0, 1)));
+			figureTree[leaf4Id] = createNode(m, leaf, null, null);
+			break;
+
+	}
+
+}
+
+function traverseTree(Id) {
+	if (Id == null) return;
+	stack.push(modelViewMatrix);
+	modelViewMatrix = mult(modelViewMatrix, figureTree[Id].transform);
+	figureTree[Id].render();
+	if (figureTree[Id].child != null) traverseTree(figureTree[Id].child);
+	modelViewMatrix = stack.pop();
+	if (figureTree[Id].sibling != null) traverseTree(figureTree[Id].sibling);
+}
+
+function trunk() {
+	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * trunkHeight, 0.0));
+	instanceMatrix = mult(instanceMatrix, scale(trunkWidth, trunkHeight, trunkWidth));
+	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+}
+
+function branch() {
+	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * branchHeight, 0.0));
+	instanceMatrix = mult(instanceMatrix, scale(branchWidth, branchHeight, branchWidth));
+	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+}
+
+function leaf() {
+	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * leafHeight, 0.0));
+	instanceMatrix = mult(instanceMatrix, scale(leafWidth, leafHeight, leafWidth));
+	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+}
 
 function quad(a, b, c, d) {
 	pointsArray.push(vertices[a]);
@@ -314,12 +419,17 @@ function quad(a, b, c, d) {
 
 
 function cube() {
+	//Bear
 	quad(1, 0, 3, 2);
 	quad(2, 3, 7, 6);
 	quad(3, 0, 4, 7);
 	quad(6, 5, 1, 2);
 	quad(4, 5, 6, 7);
 	quad(5, 4, 0, 1);
+
+	//Tree
+	quad(1, 0, 3, 2);
+	quad(3, 0, 4, 7);
 }
 
 function sliderHandler() {
@@ -377,6 +487,10 @@ function sliderHandler() {
 		theta[tailId] = event.target.value;
 		initNodes(tailId);
 	};
+	document.getElementById("slider13").oninput = function (event) {
+		thetaTree[trunkId] = event.target.value;
+		initNodesTree(trunkId);
+	};
 }
 
 
@@ -423,6 +537,8 @@ window.onload = function init() {
 
 	for (i = 0; i < numNodes; i++) initNodes(i);
 
+	for (i = 0; i < numNodesTree; i++) initNodesTree(i);
+
 	render();
 }
 
@@ -430,6 +546,10 @@ window.onload = function init() {
 var render = function () {
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.enable(gl.DEPTH_TEST);
 	traverse(torsoId);
+	modelViewMatrix = mat4();
+	stack = [];
+	traverseTree(trunkId);
 	requestAnimationFrame(render);
 }
