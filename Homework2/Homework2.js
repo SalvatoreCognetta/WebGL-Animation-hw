@@ -13,16 +13,32 @@ var instanceMatrix;
 var modelViewMatrixLoc;
 var modelViewMatrixTreeLoc;
 
+//Texture vars
+var textures = [];
+var texCoordsArray = [];
+
+var texCoord = [
+	vec2(0, 0),
+	vec2(0, 1),
+	vec2(1, 1),
+	vec2(1, 0)
+];
+
 var vertices = [
 
 	vec4(-0.5, -0.5, 0.5, 1.0),			//0
 	vec4(-0.5, 0.5, 0.5, 1.0),			//1
-	vec4(0.5, 0.5, 0.5, 1.0),			//2
+	vec4(0.5, 0.5, 0.5, 1.0),				//2
 	vec4(0.5, -0.5, 0.5, 1.0),			//3
 	vec4(-0.5, -0.5, -0.5, 1.0),		//4
 	vec4(-0.5, 0.5, -0.5, 1.0),			//5
 	vec4(0.5, 0.5, -0.5, 1.0),			//6
-	vec4(0.5, -0.5, -0.5, 1.0)			//7
+	vec4(0.5, -0.5, -0.5, 1.0),			//7
+
+	vec4(0.0, 0.0, 0.5, 1.0),			//8
+	vec4(0.5, 0.0, 0.5, 1.0),			//9
+	vec4(0.5, 0.5, 0.5, 1.0),			//10
+	vec4(0.0, 0.5, 0.5, 1.0)			//11
 ];
 
 //Bear
@@ -45,12 +61,12 @@ var tailId = 10;
 var torsoHeight = 5.0;
 var torsoWidth = 2.0;
 var upperArmHeight = 3.0;
-var lowerArmHeight = 2.0;
+var lowerArmHeight = 1.0;
 var upperArmWidth = 0.5;
 var lowerArmWidth = 0.5;
 var upperLegWidth = 0.5;
 var lowerLegWidth = 0.5;
-var lowerLegHeight = 2.0;
+var lowerLegHeight = 1.0;
 var upperLegHeight = 3.0;
 var headHeight = 1.5;
 var headWidth = 1.0;
@@ -73,7 +89,7 @@ var leaf2Id = 4;
 var leaf3Id = 5;
 var leaf4Id = 6;
 
-var trunkHeight = 13.0;
+var trunkHeight = 15.0;
 var trunkWidth = 2.0;
 var branchHeight = 4.0;
 var branchWidth = 1.0;
@@ -114,6 +130,20 @@ function scale4(a, b, c) {
 
 //--------------------------------------------
 
+function configureTexture(image, textureUnit=0) {
+	var texture = gl.createTexture();
+	gl.activeTexture(gl.TEXTURE0 + textureUnit);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB,
+       gl.RGB, gl.UNSIGNED_BYTE, image);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+                    gl.NEAREST_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.uniform1i(gl.getUniformLocation(program, "uTextureMap"), textureUnit);
+
+	textures.push(texture);
+}
 
 function createNode(transform, render, sibling, child) {
 	var node = {
@@ -134,7 +164,7 @@ function initNodes(Id) {
 
 		case torsoId:
 
-			m = translate(-9.0, 0.0, 0.0);
+			m = translate(-9.0, -6.0, 0.0);
 			m = mult(m, rotate(theta[torsoId], vec3(0, 1, 0)));
 			m = mult(m, rotate(theta[torso2Id], vec3(1, 0, 0)));
 			figure[torsoId] = createNode(m, torso, null, headId);
@@ -235,7 +265,12 @@ function torso() {
 	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * torsoHeight, 0.0));
 	instanceMatrix = mult(instanceMatrix, scale(torsoWidth, torsoHeight, torsoWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+
+	gl.bindTexture(gl.TEXTURE_2D, textures[0]);
+
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+
+	// gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
 function head() {
@@ -243,7 +278,13 @@ function head() {
 	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * headHeight, 0.0));
 	instanceMatrix = mult(instanceMatrix, scale(headWidth, headHeight, headWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+
+
+	gl.bindTexture(gl.TEXTURE_2D, textures[1]);
+
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+
+	// gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
 function leftUpperArm() {
@@ -251,7 +292,12 @@ function leftUpperArm() {
 	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * upperArmHeight, 0.0));
 	instanceMatrix = mult(instanceMatrix, scale(upperArmWidth, upperArmHeight, upperArmWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+
+	gl.bindTexture(gl.TEXTURE_2D, textures[0]);
+
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+	// gl.bindTexture(gl.TEXTURE_2D, null);
+
 }
 
 function leftLowerArm() {
@@ -316,6 +362,7 @@ function tail() {
 	instanceMatrix = mult(instanceMatrix, scale(tailWidth, tailHeight, tailWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
+	// gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
 //Tree
@@ -327,7 +374,7 @@ function initNodesTree(Id) {
 
 		case trunkId:
 
-			m = translate(6.0, -5.0, 0.0);
+			m = translate(6.0, -10.0, 0.0);
 			m = mult(m, rotate(thetaTree[trunkId], vec3(1, 0, 0)));
 			figureTree[trunkId] = createNode(m, trunk, null, branch1Id);
 			break;
@@ -393,6 +440,9 @@ function trunk() {
 	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * trunkHeight, 0.0));
 	instanceMatrix = mult(instanceMatrix, scale(trunkWidth, trunkHeight, trunkWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+
+	gl.bindTexture(gl.TEXTURE_2D, textures[2]);
+
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
 }
 
@@ -400,6 +450,9 @@ function branch() {
 	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * branchHeight, 0.0));
 	instanceMatrix = mult(instanceMatrix, scale(branchWidth, branchHeight, branchWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+
+	gl.bindTexture(gl.TEXTURE_2D, textures[2]);
+
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
 }
 
@@ -407,14 +460,21 @@ function leaf() {
 	instanceMatrix = mult(modelViewMatrix, translate(0.0, 0.5 * leafHeight, 0.0));
 	instanceMatrix = mult(instanceMatrix, scale(leafWidth, leafHeight, leafWidth));
 	gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(instanceMatrix));
+
+	gl.bindTexture(gl.TEXTURE_2D, textures[3]);
+
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
 }
 
 function quad(a, b, c, d) {
 	pointsArray.push(vertices[a]);
+	texCoordsArray.push(texCoord[0]);
 	pointsArray.push(vertices[b]);
+	texCoordsArray.push(texCoord[1]);
 	pointsArray.push(vertices[c]);
+	texCoordsArray.push(texCoord[2]);
 	pointsArray.push(vertices[d]);
+	texCoordsArray.push(texCoord[3]);
 }
 
 
@@ -428,8 +488,7 @@ function cube() {
 	quad(5, 4, 0, 1);
 
 	//Tree
-	quad(1, 0, 3, 2);
-	quad(3, 0, 4, 7);
+	quad(8, 9, 10, 11);
 }
 
 function sliderHandler() {
@@ -504,6 +563,8 @@ window.onload = function init() {
 	gl.viewport(0, 0, canvas.width, canvas.height);
 	gl.clearColor(1.0, 1.0, 1.0, 1.0);
 
+	gl.enable(gl.DEPTH_TEST);
+
 	//
 	//  Load shaders and initialize attribute buffers
 	//
@@ -533,6 +594,26 @@ window.onload = function init() {
 	gl.vertexAttribPointer(positionLoc, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(positionLoc);
 
+	var tBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(texCoordsArray), gl.STATIC_DRAW);
+
+  var texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
+  gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(texCoordLoc);
+
+	var image = document.getElementById("textureTorso");
+	configureTexture(image, 0);
+
+	image = document.getElementById("textureHeadImg");
+	configureTexture(image, 1);
+
+	image = document.getElementById("textureTree");
+	configureTexture(image, 2);
+
+	image = document.getElementById("textureLeaf");
+	configureTexture(image, 3);
+
 	sliderHandler();
 
 	for (i = 0; i < numNodes; i++) initNodes(i);
@@ -545,8 +626,7 @@ window.onload = function init() {
 
 var render = function () {
 
-	gl.clear(gl.COLOR_BUFFER_BIT);
-	gl.enable(gl.DEPTH_TEST);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	traverse(torsoId);
 	modelViewMatrix = mat4();
 	stack = [];

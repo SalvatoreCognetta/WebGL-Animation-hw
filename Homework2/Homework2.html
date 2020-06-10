@@ -5,12 +5,16 @@
 #version 300 es
 
 in vec4 aPosition;
+in vec2 aTexCoord;
+
+out vec2 vTexCoord;
 
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 
 void main()
 {
+	vTexCoord = aTexCoord;
     gl_Position = projectionMatrix * modelViewMatrix * aPosition;
 }
 </script>
@@ -20,12 +24,14 @@ void main()
 
 precision mediump float;
 
+in vec2 vTexCoord;
 out vec4 fColor;
+
+uniform sampler2D uTextureMap;
 
 void main()
 {
-    fColor = vec4(1.0, 0.0, 0.0, 1.0);
-
+    fColor =  texture(uTextureMap, vTexCoord);
 }
 </script>
 
@@ -39,6 +45,10 @@ void main()
 	<canvas id="gl-canvas" width="512" height="512">
 	Oops ... your browser doesn't support the HTML5 canvas element
 	</canvas>
+	<img id = "textureTorso" src = "./torso1.jpg" hidden></img>
+	<img id = "textureHeadImg" src = "./head.jpg" hidden></img>
+	<img id = "textureTree" src = "./tree.jpeg" hidden></img>
+	<img id = "textureLeaf" src = "./leaf.jpg" hidden></img>
 
 	<div id="sliders">
 		<div>
