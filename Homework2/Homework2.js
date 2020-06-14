@@ -13,6 +13,18 @@ var instanceMatrix;
 var modelViewMatrixLoc;
 var modelViewMatrixTreeLoc;
 
+var EPSILON = 1;
+
+var ANGLE_ARM_PER_SEC = 20;
+var ANGLE_TORSO_PER_SEC = 40;
+var TRANSLATION_PER_SEC = 1.5;
+var GROUND = vec3(0, -9.5, 1);
+var directionArm = vec3(-1, 1, 1);
+var directionLeg = vec3(-1, 1, 1);
+var directionLowerLeg = vec3(-1, 1, 1);
+var directionTorso = -1;
+var last;
+
 //Texture vars
 var textures = [];
 var texCoordsArray = [];
@@ -28,7 +40,7 @@ var vertices = [
 
 	vec4(-0.5, -0.5, 0.5, 1.0),			//0
 	vec4(-0.5, 0.5, 0.5, 1.0),			//1
-	vec4(0.5, 0.5, 0.5, 1.0),				//2
+	vec4(0.5, 0.5, 0.5, 1.0),			//2
 	vec4(0.5, -0.5, 0.5, 1.0),			//3
 	vec4(-0.5, -0.5, -0.5, 1.0),		//4
 	vec4(-0.5, 0.5, -0.5, 1.0),			//5
@@ -43,10 +55,8 @@ var vertices = [
 
 //Bear
 var torsoId = 0;
-var torso2Id = 12;
 var headId = 1;
 var head1Id = 1;
-var head2Id = 11;
 var leftUpperArmId = 2;
 var leftLowerArmId = 3;
 var rightUpperArmId = 4;
@@ -56,28 +66,54 @@ var leftLowerLegId = 7;
 var rightUpperLegId = 8;
 var rightLowerLegId = 9;
 var tailId = 10;
+var head2Id = 11;
+var torso2Id = 12;
+var leftUpperArm2Id = 13;
+var rightUpperArm2Id = 14;
+var leftUpperLeg2Id = 15;
+var rightUpperLeg2Id = 16;
 
 
 var torsoHeight = 5.0;
-var torsoWidth = 2.0;
-var upperArmHeight = 3.0;
-var lowerArmHeight = 1.0;
-var upperArmWidth = 0.5;
-var lowerArmWidth = 0.5;
-var upperLegWidth = 0.5;
-var lowerLegWidth = 0.5;
-var lowerLegHeight = 1.0;
-var upperLegHeight = 3.0;
-var headHeight = 1.5;
-var headWidth = 1.0;
+var torsoWidth = 3.0;
+var upperArmHeight = 2.0;
+var lowerArmHeight = 2.0;
+var upperArmWidth = 1.3;
+var lowerArmWidth = 1.3;
+var upperLegWidth = 1.3;
+var lowerLegWidth = 1.3;
+var lowerLegHeight = 2.0;
+var upperLegHeight = 2.0;
+var headHeight = 2;
+var headWidth = 1.3;
 var tailHeight = 0.5;
-var tailWidth = 0.5;
+var tailWidth = 1.0;
+
+var torsoPosition = vec3(-9, -6, 1);
 
 var numNodes = 11;
 var numAngles = 12;
 var angle = 0;
 
-var theta = [90, 0, 90, 0, 90, 0, 90, 0, 90, 0, 180, 0, 90];
+var theta = [
+	90, 	//Torso: 0
+	0, 		//Head : 1
+	90, 	//LeftUpperArm: 2
+	0, 		//LeftLowerArm: 3
+	90, 	//RightUpperArm:4
+	0, 		//RightLowerArm:5
+	90, 	//LeftUpperLeg: 6
+	0, 		//LeftLowerLeg: 7
+	90, 	//RightUpperLeg:8
+	0, 		//RightLowerLeg:9
+	180, 	//Tail:  10
+	0, 		//Head2: 11
+	90,		//Torso2:12
+	0,		//LeftUpperArm2Id: 13
+	0,		//RightUpperArm2Id:14
+	0,		//LeftUpperLeg2Id:15
+	0 		//RightUpperLeg2Id:16
+];
 
 
 //Tree
@@ -95,6 +131,8 @@ var branchHeight = 4.0;
 var branchWidth = 1.0;
 var leafHeight = 1.0;
 var leafWidth = 1.0;
+
+var treePosition = vec3(6, -10, 0);
 
 var numNodesTree = 7;
 
@@ -130,15 +168,15 @@ function scale4(a, b, c) {
 
 //--------------------------------------------
 
-function configureTexture(image, textureUnit=0) {
+function configureTexture(image, textureUnit = 0) {
 	var texture = gl.createTexture();
 	gl.activeTexture(gl.TEXTURE0 + textureUnit);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB,
-       gl.RGB, gl.UNSIGNED_BYTE, image);
-  gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
-                    gl.NEAREST_MIPMAP_LINEAR);
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB,
+		gl.RGB, gl.UNSIGNED_BYTE, image);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+		gl.NEAREST_MIPMAP_LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.uniform1i(gl.getUniformLocation(program, "uTextureMap"), textureUnit);
 
@@ -164,7 +202,7 @@ function initNodes(Id) {
 
 		case torsoId:
 
-			m = translate(-9.0, -6.0, 0.0);
+			m = translate(torsoPosition[0], torsoPosition[1], torsoPosition[2]);
 			m = mult(m, rotate(theta[torsoId], vec3(0, 1, 0)));
 			m = mult(m, rotate(theta[torso2Id], vec3(1, 0, 0)));
 			figure[torsoId] = createNode(m, torso, null, headId);
@@ -174,7 +212,7 @@ function initNodes(Id) {
 		case head1Id:
 		case head2Id:
 
-			m = translate(0.0, torsoHeight + 0.55 * headHeight, 0.0);
+			m = translate(0.0, torsoHeight + 0.5 * headHeight, 0.0);
 			m = mult(m, rotate(theta[head1Id], vec3(1, 0, 0)));
 			m = mult(m, rotate(theta[head2Id], vec3(0, 1, 0)));
 			m = mult(m, translate(0.0, -0.5 * headHeight, 0.0));
@@ -184,29 +222,33 @@ function initNodes(Id) {
 
 		case leftUpperArmId:
 
-			m = translate(-(torsoWidth + upperArmWidth), 0.9 * torsoHeight, 0.0);
+			m = translate(-(torsoWidth + upperArmWidth)/2, 0.9 * torsoHeight, 0.0);
 			m = mult(m, rotate(theta[leftUpperArmId], vec3(1, 0, 0)));
+			m = mult(m, rotate(theta[leftUpperArm2Id], vec3(0, 0, 1)));
 			figure[leftUpperArmId] = createNode(m, leftUpperArm, rightUpperArmId, leftLowerArmId);
 			break;
 
 		case rightUpperArmId:
 
-			m = translate(torsoWidth + upperArmWidth, 0.9 * torsoHeight, 0.0);
+			m = translate((torsoWidth + upperArmWidth)/2, 0.9 * torsoHeight, 0.0);
 			m = mult(m, rotate(theta[rightUpperArmId], vec3(1, 0, 0)));
+			m = mult(m, rotate(theta[rightUpperArm2Id], vec3(0, 0, 1)));
 			figure[rightUpperArmId] = createNode(m, rightUpperArm, leftUpperLegId, rightLowerArmId);
 			break;
 
 		case leftUpperLegId:
 
-			m = translate(-(torsoWidth + upperLegWidth), 0.1 * upperLegHeight, 0.0);
+			m = translate(-(torsoWidth + upperLegWidth)/2, 0.1 * upperLegHeight, 0.0);
 			m = mult(m, rotate(theta[leftUpperLegId], vec3(1, 0, 0)));
+			m = mult(m, rotate(theta[leftUpperLeg2Id], vec3(0, 0, 1)));
 			figure[leftUpperLegId] = createNode(m, leftUpperLeg, rightUpperLegId, leftLowerLegId);
 			break;
 
 		case rightUpperLegId:
 
-			m = translate(torsoWidth + upperLegWidth, 0.1 * upperLegHeight, 0.0);
+			m = translate((torsoWidth + upperLegWidth)/2, 0.1 * upperLegHeight, 0.0);
 			m = mult(m, rotate(theta[rightUpperLegId], vec3(1, 0, 0)));
+			m = mult(m, rotate(theta[rightUpperLeg2Id], vec3(0, 0, 1)));
 			figure[rightUpperLegId] = createNode(m, rightUpperLeg, tailId, rightLowerLegId);
 			break;
 
@@ -374,7 +416,7 @@ function initNodesTree(Id) {
 
 		case trunkId:
 
-			m = translate(6.0, -10.0, 0.0);
+			m = translate(treePosition[0], treePosition[1], treePosition[2]);
 			m = mult(m, rotate(thetaTree[trunkId], vec3(1, 0, 0)));
 			figureTree[trunkId] = createNode(m, trunk, null, branch1Id);
 			break;
@@ -396,7 +438,7 @@ function initNodesTree(Id) {
 
 		case leaf1Id:
 
-			m = translate(-(0.3 * branchWidth), 0.5 * branchHeight, 0.0);
+			m = translate(-(0.3 * branchWidth), 0.5 * branchHeight, 1.0);
 			m = mult(m, rotate(thetaTree[leaf1Id], vec3(0, 0, 1)));
 			figureTree[leaf1Id] = createNode(m, leaf, leaf2Id, null);
 			break;
@@ -410,7 +452,7 @@ function initNodesTree(Id) {
 
 		case leaf3Id:
 
-			m = translate(-0.3 * branchWidth, 0.6 * branchHeight, 0.0);
+			m = translate(-0.3 * branchWidth, 0.6 * branchHeight, 1.0);
 			m = mult(m, rotate(thetaTree[leaf3Id], vec3(0, 0, 1)));
 			figureTree[leaf3Id] = createNode(m, leaf, leaf4Id, null);
 			break;
@@ -466,6 +508,308 @@ function leaf() {
 	for (var i = 0; i < 6; i++) gl.drawArrays(gl.TRIANGLE_FAN, 4 * i, 4);
 }
 
+var state = [
+	false,
+	false,
+	false,
+	false,
+	false
+];
+
+function animation() {
+	if (!state[0]) {
+		walkRight();
+	} else if (!state[1]) {
+		restPosition();
+	} else if (!state[2]) {
+		rotateBear();
+	} else if (!state[3]) {
+		walkBack();
+	} else if (!state[4]) {
+		standUp();
+	} else {
+		scratchBack();
+	}
+}
+
+//State 1
+function walkRight() {
+	var now = Date.now();
+	var time = now - last;
+	last = now;
+
+	var bearPosition = torsoPosition[0] + torsoHeight + headHeight;
+
+	if (bearPosition >= treePosition[0] - trunkWidth/2) {
+		state[0] = true;
+	}
+
+	var next_arm_angle = (theta[leftUpperArmId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	if (next_arm_angle <= 70) {
+		directionLeg[0] = 1;		//Backward
+	} else if (next_arm_angle >= 110) {
+		directionLeg[0] = -1;	//Forward
+	}
+
+	torsoPosition[0] = torsoPosition[0] + (TRANSLATION_PER_SEC * time) / 1000.0;
+	var arm_angle = theta[leftUpperArmId];
+	//Conversion to rad
+	arm_angle = arm_angle/90*Math.PI/2;
+	var arm_length = 0.9 * (upperArmHeight + lowerArmHeight);
+	torsoPosition[1] = GROUND[1] + arm_length * Math.sin(arm_angle);
+	
+	theta[leftUpperArmId] 	= (theta[leftUpperArmId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	theta[rightUpperLegId] 	= (theta[rightUpperLegId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	
+	theta[rightUpperArmId] 	= (theta[rightUpperArmId] - directionLeg[0] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+	theta[leftUpperLegId] 	= (theta[leftUpperLegId] - directionLeg[0] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+	
+	if (theta[leftUpperLegId] < 90)
+		theta[leftLowerLegId] = 90 - theta[leftUpperLegId];
+	if (theta[rightUpperLegId] < 90)
+		theta[rightLowerLegId] = 90 - theta[rightUpperLegId];
+
+	initNodes(torsoId);
+
+	initNodes(leftUpperArmId);
+	initNodes(rightUpperLegId);
+
+	initNodes(rightUpperArmId);
+	initNodes(leftUpperLegId);
+
+	initNodes(leftLowerLegId);
+	initNodes(rightLowerLegId);
+}
+
+//State 2: reset arm/leg position
+function restPosition() {
+	var now = Date.now();
+	var time = now - last;
+	last = now;
+
+	var next_left_arm_angle 	= (theta[leftUpperArmId] + directionArm[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	var next_right_arm_angle 	= (theta[rightUpperArmId] + directionArm[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	var next_left_leg_angle 	= (theta[leftUpperLegId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	var next_right_leg_angle 	= (theta[rightUpperLegId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	var next_left_lower_leg_angle 	= (theta[leftLowerLegId] + directionLowerLeg[0] * (ANGLE_ARM_PER_SEC/3 * time) / 1000.0) % 360;
+	var next_right_lower_leg_angle 	= (theta[rightLowerLegId] + directionLowerLeg[0] * (ANGLE_ARM_PER_SEC/3 * time) / 1000.0) % 360;
+	
+	var arm_angle = theta[leftUpperArmId];
+	//Conversion to rad
+	arm_angle = arm_angle/90*Math.PI/2;
+	var arm_length = 0.9 * (upperArmHeight + lowerArmHeight);
+	var l = arm_length * Math.sin(arm_angle);
+
+	if (next_left_arm_angle < 90) {
+		directionArm[0] = 1;
+	} else if (next_left_arm_angle > 90) {
+		directionArm[0] = -1;
+	}
+
+	if (next_left_leg_angle < 90) {
+		directionLeg[0] = -1;
+	} else if (next_left_leg_angle > 90) {
+		directionLeg[0] = 1;
+	}
+
+	if (next_left_lower_leg_angle <= -EPSILON) {
+		directionLowerLeg[0] = -1;
+	} else {
+		directionLowerLeg[0] = 1;
+	}
+
+	if (next_left_arm_angle >= 90 - EPSILON && next_left_arm_angle <= 90 + EPSILON) {
+		if (next_right_arm_angle >= 90 - EPSILON || next_right_arm_angle <= 90 + EPSILON)
+			if (next_left_leg_angle >= 90 - EPSILON && next_left_leg_angle <= 90 + EPSILON) 
+				if (next_right_leg_angle >= 90 - EPSILON || next_right_leg_angle <= 90 + EPSILON)
+					if (next_left_lower_leg_angle >= -EPSILON && next_left_lower_leg_angle <= EPSILON)
+						if (next_right_lower_leg_angle >= -2*EPSILON && next_right_lower_leg_angle <= 2*EPSILON) 
+							if (torsoPosition[1] >= GROUND[1] + l - EPSILON/3 && torsoPosition[1] <= GROUND[1] + l + EPSILON/3)
+								state[1] = true;
+	}
+
+	if (next_left_arm_angle < 90 - EPSILON || next_left_arm_angle > 90 + EPSILON) {
+		theta[leftUpperArmId] 	= (theta[leftUpperArmId] + directionArm[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	}
+	if (next_right_arm_angle < 90 - EPSILON || next_right_arm_angle > 90 + EPSILON) {
+		theta[rightUpperArmId] 	= (theta[rightUpperArmId] - directionArm[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;	
+	}
+	
+	if (next_left_leg_angle < 90 - EPSILON || next_left_leg_angle > 90 + EPSILON) {
+		theta[leftUpperLegId] 	= (theta[leftUpperLegId] - directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	}
+	if (next_right_leg_angle < 90 - EPSILON || next_right_leg_angle > 90 + EPSILON) {
+		theta[rightUpperLegId] 	= (theta[rightUpperLegId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	}
+
+	if (next_left_lower_leg_angle < -2*EPSILON || next_left_lower_leg_angle > 2*EPSILON) {
+		var lower_direction = 1;
+		if (theta[leftLowerLegId] > 0)
+		lower_direction = -1;
+		theta[leftLowerLegId] 	= (theta[leftLowerLegId] + lower_direction * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	}
+	if (next_right_lower_leg_angle < -2*EPSILON || next_right_lower_leg_angle > 2*EPSILON) {
+		theta[rightLowerLegId] 	= (theta[rightLowerLegId] - directionLowerLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+	}
+	if (torsoPosition[1] != GROUND[1] + l) {
+		torsoPosition[1] = GROUND[1] + l;
+	}
+
+	initNodes(torsoId);
+
+	initNodes(leftUpperArmId);
+	initNodes(rightUpperLegId);
+
+	initNodes(rightUpperArmId);
+	initNodes(leftUpperLegId);
+	
+	initNodes(leftLowerLegId);
+	initNodes(rightLowerLegId);
+}
+
+//State 3
+function rotateBear() {
+	var now = Date.now();
+	var time = now - last;
+	last = now;
+
+	var next_arm_angle = (theta[rightUpperArm2Id] + directionLeg[2] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+
+	if (next_arm_angle >= 10) {
+		directionLeg[2] = -1;
+	} else if (next_arm_angle <= -5) {
+		directionLeg[2] = 1;
+	}
+
+	var next_torso_angle = (theta[torsoId] + (ANGLE_TORSO_PER_SEC/2 * time) / 1000.0) % 360;
+	if (next_torso_angle >= 270 - EPSILON && next_torso_angle <= 270 + EPSILON) {
+		directionLeg[2] = 0;
+		state[2] = true;
+		state[1] = false; //reset leg position
+	}
+
+	torsoPosition[0] = torsoPosition[0] + (TRANSLATION_PER_SEC/10 * time) / 1000.0;
+
+	theta[torsoId] = (theta[torsoId] + (ANGLE_TORSO_PER_SEC/2 * time) / 1000.0) % 360;
+
+	theta[rightUpperArm2Id] = (theta[rightUpperArm2Id] + directionLeg[2] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+	theta[leftUpperArm2Id] = (theta[leftUpperArm2Id] - directionLeg[2] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+
+	theta[rightUpperLeg2Id] = (theta[rightUpperLeg2Id] + directionLeg[2] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+	theta[leftUpperLeg2Id] = (theta[leftUpperLeg2Id] - directionLeg[2] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+
+	initNodes(torsoId);
+
+	initNodes(rightUpperArmId);
+	initNodes(leftUpperArmId);
+
+	initNodes(rightUpperLegId);
+	initNodes(leftUpperLegId);
+}
+
+//State 4
+function walkBack() {
+	var now = Date.now();
+	var time = now - last;
+	last = now;
+	
+	var next_torso_pos = torsoPosition[0] + (TRANSLATION_PER_SEC/2 * time) / 1000.0;
+	if (next_torso_pos - torsoWidth/2 > (treePosition[0] - trunkWidth)/2) {
+		state[3] = true;
+		state[1] = false;
+	}
+
+	var next_arm_angle = (theta[rightUpperArmId] + directionLeg[0] * (ANGLE_ARM_PER_SEC * time) / 1000.0) % 360;
+
+	if (next_arm_angle >= 100) {
+		directionLeg[0] = -1;
+	} else if (next_arm_angle <= 80) {
+		directionLeg[0] = 1;
+	}
+
+	torsoPosition[0] = torsoPosition[0] + (TRANSLATION_PER_SEC/2 * time) / 1000.0;
+	var arm_angle = theta[leftUpperArmId];
+	//Conversion to rad
+	arm_angle = arm_angle/90*Math.PI/2;
+	var arm_length = 0.9 * (upperArmHeight + lowerArmHeight);
+	torsoPosition[1] = GROUND[1] + arm_length * Math.sin(arm_angle);
+	
+	theta[rightUpperArmId] = (theta[rightUpperArmId] + directionLeg[0] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+	theta[leftUpperArmId] = (theta[leftUpperArmId] - directionLeg[0] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+
+	theta[rightUpperLegId] = (theta[rightUpperLegId] + directionLeg[0] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+	theta[leftUpperLegId] = (theta[leftUpperLegId] - directionLeg[0] * (ANGLE_ARM_PER_SEC/2 * time) / 1000.0) % 360;
+
+	initNodes(torsoId);
+
+	initNodes(rightUpperArmId);
+	initNodes(leftUpperArmId);
+
+	initNodes(rightUpperLegId);
+	initNodes(leftUpperLegId);
+}
+
+//State 5
+function standUp() {
+	var now = Date.now();
+	var time = now - last;
+	last = now;
+
+	var angle_torso = TRANSLATION_PER_SEC * 30;
+
+	var next_torso_angle = (theta[torso2Id] + (angle_torso/2 * time) / 1000.0) % 360;
+	if (next_torso_angle >= 0 - EPSILON && next_torso_angle <= 0 + EPSILON) {
+		if (torsoPosition[1] < -8.3)
+			state[4] = true;
+	}
+
+	if (torsoPosition[1] >= -8.3)
+		torsoPosition[1] = torsoPosition[1] - (TRANSLATION_PER_SEC/2.3 * time) / 1000.0;
+
+	if (next_torso_angle < -EPSILON || next_torso_angle > EPSILON)
+		theta[torso2Id] = (theta[torso2Id] - (angle_torso/2 * time) / 1000.0) % 360;
+
+	theta[leftLowerLegId] 	= 90 - theta[torso2Id];
+	theta[rightLowerLegId] 	= 90 - theta[torso2Id];
+
+	initNodes(torsoId);
+
+	initNodes(leftLowerLegId);
+	initNodes(rightLowerLegId);
+}
+
+//State 6
+function scratchBack() {
+	var now = Date.now();
+	var time = now - last;
+	last = now;
+	
+	var next_torso_pos = torsoPosition[1] + (TRANSLATION_PER_SEC/3 * time) / 1000.0;
+	if (next_torso_pos > -8) {
+		directionTorso = -1;
+	} else if (next_torso_pos < -8.5) {
+		directionTorso = 1;
+	}
+
+	torsoPosition[1] = torsoPosition[1] + directionTorso * (TRANSLATION_PER_SEC/3 * time) / 1000.0;
+
+	var angle_torso = TRANSLATION_PER_SEC * 15;
+	theta[leftUpperLegId] = (theta[leftUpperLegId] + directionTorso * (angle_torso * time) / 1000.0) % 360;
+	theta[rightUpperLegId] = (theta[rightUpperLegId] + directionTorso * (angle_torso * time) / 1000.0) % 360;
+
+
+	theta[leftLowerLegId] 	= 180 - theta[leftUpperLegId];
+	theta[rightLowerLegId] 	= 180 - theta[rightUpperLegId];
+
+	initNodes(torsoId);
+
+	initNodes(leftUpperLegId);
+	initNodes(rightUpperLegId);
+
+	initNodes(leftLowerLegId);
+	initNodes(rightLowerLegId);
+}
+
 function quad(a, b, c, d) {
 	pointsArray.push(vertices[a]);
 	texCoordsArray.push(texCoord[0]);
@@ -492,63 +836,26 @@ function cube() {
 }
 
 function sliderHandler() {
-	document.getElementById("slider0").oninput = function (event) {
-		theta[torsoId] = event.target.value;
-		initNodes(torsoId);
+
+	document.getElementById("translation").oninput = function (event) {
+		TRANSLATION_PER_SEC = +event.target.value;
 	};
-	document.getElementById("slider11").oninput = function (event) {
-		theta[torso2Id] = event.target.value;
-		initNodes(torsoId);
-	};
-	document.getElementById("slider1").oninput = function (event) {
-		theta[head1Id] = event.target.value;
-		initNodes(head1Id);
+	document.getElementById("rotation-torso").oninput = function (event) {
+		ANGLE_TORSO_PER_SEC = +event.target.value;
 	};
 
-	document.getElementById("slider2").oninput = function (event) {
-		theta[leftUpperArmId] = event.target.value;
-		initNodes(leftUpperArmId);
-	};
-	document.getElementById("slider3").oninput = function (event) {
-		theta[leftLowerArmId] = event.target.value;
-		initNodes(leftLowerArmId);
-	};
-
-	document.getElementById("slider4").oninput = function (event) {
-		theta[rightUpperArmId] = event.target.value;
-		initNodes(rightUpperArmId);
-	};
-	document.getElementById("slider5").oninput = function (event) {
-		theta[rightLowerArmId] = event.target.value;
-		initNodes(rightLowerArmId);
-	};
-	document.getElementById("slider6").oninput = function (event) {
-		theta[leftUpperLegId] = event.target.value;
-		initNodes(leftUpperLegId);
-	};
-	document.getElementById("slider7").oninput = function (event) {
-		theta[leftLowerLegId] = event.target.value;
-		initNodes(leftLowerLegId);
-	};
-	document.getElementById("slider8").oninput = function (event) {
-		theta[rightUpperLegId] = event.target.value;
-		initNodes(rightUpperLegId);
-	};
-	document.getElementById("slider9").oninput = function (event) {
-		theta[rightLowerLegId] = event.target.value;
-		initNodes(rightLowerLegId);
-	};
-	document.getElementById("slider10").oninput = function (event) {
-		theta[head2Id] = event.target.value;
-		initNodes(head2Id);
-	};
-	document.getElementById("slider12").oninput = function (event) {
-		theta[tailId] = event.target.value;
-		initNodes(tailId);
-	};
-	document.getElementById("slider13").oninput = function (event) {
-		thetaTree[trunkId] = event.target.value;
-		initNodesTree(trunkId);
+	document.getElementById("reset-animation").onclick = function (event) {
+		torsoPosition = vec3(-9, -6, 1);
+		theta = [90,0,90,0,90,0,90,0,90,0,180,0,90,0,0,0,0];
+		state[0] = false;
+		state[1] = false;
+		state[2] = false;
+		state[3] = false;
+		state[4] = false;
+		directionLeg = vec3(-1, 0, 1);
+		directionTorso = -1;
+		for (var i = 0; i <= rightLowerLegId; i++)
+			initNodes(i);
 	};
 }
 
@@ -595,11 +902,11 @@ window.onload = function init() {
 	gl.enableVertexAttribArray(positionLoc);
 
 	var tBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(texCoordsArray), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(texCoordsArray), gl.STATIC_DRAW);
 
-  var texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
-  gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
+	var texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
+	gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(texCoordLoc);
 
 	var image = document.getElementById("textureTorso");
@@ -620,6 +927,8 @@ window.onload = function init() {
 
 	for (i = 0; i < numNodesTree; i++) initNodesTree(i);
 
+	last = Date.now();
+
 	render();
 }
 
@@ -631,5 +940,8 @@ var render = function () {
 	modelViewMatrix = mat4();
 	stack = [];
 	traverseTree(trunkId);
+	animation();
+	// console.log(theta[torso2Id]);
+	// console.log(theta[leftUpperLegId]);
 	requestAnimationFrame(render);
 }
